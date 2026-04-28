@@ -1,0 +1,24 @@
+[project]
+name = "shablon"
+version = "0.0.1"
+description = "Render Jinja2 templates from a .shablon/ directory into a project tree."
+readme = "README.md"
+authors = [
+    { name = "a3lem", email = "me@a3lem.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "jinja2>=3.1",
+]
+
+[project.scripts]
+shablon = "shablon.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.22,<0.10.0"]
+build-backend = "uv_build"

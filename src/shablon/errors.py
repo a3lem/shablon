@@ -1,0 +1,2 @@
+class ShablonError(Exception):
+    pass
