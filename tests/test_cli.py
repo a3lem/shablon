@@ -22,16 +22,22 @@ def test_help_lists_generate(capsys: pytest.CaptureFixture[str]) -> None:
     assert "generate" in capsys.readouterr().out
 
 
-def test_generate_returns_zero(project: Path) -> None:
+def test_generate_returns_zero(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     write(project / ".shablon" / "templates" / "x.md", "hi")
-    rc = main(["--cwd", str(project), "generate"])
+    monkeypatch.chdir(project)
+    rc = main(["generate"])
     assert rc == 0
     assert (project / "x.md").read_text() == "hi"
 
 
 # spec: cli requirement=missing-configuration-errors-cleanly scenario=no-shablon-directory
-def test_missing_shablon_returns_one(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    rc = main(["--cwd", str(tmp_path), "generate"])
+def test_missing_shablon_returns_one(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    rc = main(["generate"])
     assert rc == 1
     err = capsys.readouterr().err
     assert "no .shablon/" in err

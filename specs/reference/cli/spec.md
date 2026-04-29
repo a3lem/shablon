@@ -2,7 +2,9 @@
 
 ## Overview
 
-The CLI is the user-facing entry point for shablon. It exposes subcommands for template rendering and provides consistent error reporting, project root discovery, and help output.
+The CLI is the user-facing entry point for shablon. It exposes subcommands for template rendering and project scaffolding, and provides consistent error reporting, project root discovery, and help output.
+
+All subcommands operate relative to the process working directory. `generate` walks upward from the working directory to locate `.shablon/`; `init` scaffolds `.shablon/` directly in the working directory. There is no flag to override the working directory -- the user must `cd` to the desired location.
 
 ## Scenarios
 
@@ -28,12 +30,26 @@ WHEN the user runs `shablon` with no subcommand, the system SHALL print the help
   Then the help text is printed to stderr
   And shablon exits with status 1
 
+### Requirement: Version Flag
+The system SHALL expose a top-level `--version` flag that prints `shablon <version>` to stdout and exits with status 0, where `<version>` matches `shablon.__version__`.
+
+The flag SHALL work without a subcommand and SHALL NOT require a configured project (no `.shablon/` lookup is performed).
+
+#### Scenario: --version prints the installed version
+  Given shablon is installed at version `X.Y.Z`
+  When the user runs `shablon --version` from any directory
+  Then stdout contains `shablon X.Y.Z`
+  And shablon exits with status 0
+
+#### Scenario: --version works outside a project
+  Given the user runs `shablon --version` from a directory with no `.shablon/` on the path
+  Then shablon exits with status 0
+  And no error is printed to stderr
+
 ### Requirement: Project Root Discovery
-The system SHALL locate the project root by searching for a `.shablon/` directory starting at the current working directory and walking upward through parent directories until one is found or the filesystem root is reached. The system SHALL NOT descend into subdirectories during this search.
+The system SHALL locate the project root by searching for a `.shablon/` directory starting at the current working directory and walking upward through parent directories until one is found or the filesystem root is reached. The system SHALL stop at the first ancestor containing `.shablon/` and select that directory as the project root. The system SHALL NOT descend into subdirectories during this search.
 
 The directory containing `.shablon/` is the **project root** for the run; outputs are written relative to it.
-
-WHERE the user passes `--cwd <path>`, the system SHALL begin the upward walk at `<path>` instead of the current working directory.
 
 #### Scenario: Run from project root
   Given a project root `/proj` containing `.shablon/`
@@ -47,11 +63,11 @@ WHERE the user passes `--cwd <path>`, the system SHALL begin the upward walk at 
   Then shablon walks upward and selects `/proj` as the project root
   And outputs are written under `/proj`
 
-#### Scenario: Explicit cwd
-  Given a project root `/elsewhere` containing `.shablon/`
-  When the user runs `shablon generate --cwd /elsewhere/src` from any directory
-  Then shablon begins the upward walk at `/elsewhere/src`
-  And selects `/elsewhere` as the project root
+#### Scenario: Discovery stops at the nearest .shablon
+  Given `/proj/.shablon/` and `/proj/sub/.shablon/` both exist
+  When the user runs `shablon generate` from `/proj/sub/deeper`
+  Then `/proj/sub` is selected as the project root
+  And `/proj/.shablon/` is not consulted
 
 #### Scenario: Sibling .shablon is not discovered
   Given `/proj/.shablon/` exists but the user runs from `/other/` (a sibling, not a descendant)
@@ -95,3 +111,71 @@ IF rendering, variable resolution, or template discovery raises an error for any
   Then the first template is written
   And the second template is reported on stderr with its path
   And shablon exits with a non-zero status
+
+### Requirement: Init Subcommand
+The system SHALL expose a `shablon init` subcommand that scaffolds a new `.shablon/` directory in the current working directory.
+
+Unlike `generate`, `init` SHALL NOT walk upward; it operates only on the working directory.
+
+#### Scenario: Default invocation
+  Given an empty directory `/proj` with no `.shablon/`
+  When the user runs `shablon init` from `/proj`
+  Then `/proj/.shablon/` is created
+  And `/proj/.shablon/config.toml` exists
+  And `/proj/.shablon/vars.sh` exists and is executable
+  And `/proj/.shablon/templates/` exists as a directory
+  And `/proj/.shablon/templates/_includes/` exists as a directory
+  And shablon exits with status 0
+
+#### Scenario: Help output
+  Given the user runs `shablon --help`
+  When the help text is printed
+  Then `init` is listed as an available subcommand alongside `generate`
+
+### Requirement: Init Refuses Existing `.shablon/`
+IF the target directory already contains a `.shablon/` entry (file, directory, or symlink), the system SHALL exit non-zero with an error naming the path and SHALL NOT modify any file inside it.
+
+#### Scenario: Existing .shablon directory
+  Given `/proj/.shablon/` already exists as a directory
+  When the user runs `shablon init` from `/proj`
+  Then shablon exits with status 1
+  And stderr names `/proj/.shablon` and explains that it already exists
+  And no file inside `/proj/.shablon/` is created or modified
+
+#### Scenario: .shablon exists as a file
+  Given `/proj/.shablon` exists as a regular file (not a directory)
+  When the user runs `shablon init` from `/proj`
+  Then shablon exits with status 1
+  And the existing file is left untouched
+
+### Requirement: Starter `config.toml`
+The system SHALL create `.shablon/config.toml` containing the two recognised configuration keys as commented-out lines showing their default values, so the file documents the schema while leaving every field at its default.
+
+#### Scenario: Generated config is valid and uses defaults
+  Given a freshly run `shablon init`
+  When the user runs `shablon generate` against the new project
+  Then config loading succeeds
+  And `partials_dir` resolves to `_includes`
+  And `include` resolves to the empty list
+
+### Requirement: Starter `vars.sh`
+The system SHALL create `.shablon/vars.sh` as an executable script (mode `0755`) whose stdout is the JSON object `{}`, satisfying the `variables` capability's subprocess contract out of the box. The file SHALL begin with a POSIX shell shebang line (e.g., `#!/usr/bin/env sh`) so that direct invocation by absolute path -- as required by the `variables` subprocess contract -- succeeds without relying on the caller's shell.
+
+#### Scenario: Generated vars.sh runs cleanly
+  Given a freshly run `shablon init`
+  When the user runs `shablon generate` against the new project
+  Then variable resolution succeeds with an empty render context
+
+#### Scenario: Generated vars.sh is executable
+  Given a freshly run `shablon init`
+  When the user inspects `.shablon/vars.sh`
+  Then its mode bits include the owner-execute bit
+
+### Requirement: Starter `templates/` Tree
+The system SHALL create `.shablon/templates/` and `.shablon/templates/_includes/` as empty directories. The system SHALL NOT create any starter template or partial file inside them.
+
+#### Scenario: Empty templates tree
+  Given a freshly run `shablon init`
+  When the user lists `.shablon/templates/`
+  Then `_includes/` is the only entry
+  And `_includes/` is empty

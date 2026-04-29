@@ -3,12 +3,18 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import typing as T
 from pathlib import Path
 
-from shablon import generate
+from shablon import __version__, generate, init
 from shablon.errors import ShablonError
 
 logger = logging.getLogger("shablon")
+
+_COMMANDS: dict[str, T.Callable[[Path], None]] = {
+    "generate": generate.run,
+    "init": init.run,
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,9 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        assert args.command == "generate", args.command
-        assert isinstance(args.cwd, Path), type(args.cwd)
-        generate.run(start=args.cwd)
+        assert args.command in _COMMANDS, args.command
+        _COMMANDS[args.command](Path.cwd().resolve())
     except ShablonError as exc:
         logger.error("%s", exc)
         return 1
@@ -45,10 +50,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Render Jinja2 templates from .shablon/templates/.",
     )
     parser.add_argument(
-        "--cwd",
-        type=Path,
-        default=Path.cwd(),
-        help="Starting directory for upward .shablon/ discovery (default: cwd).",
+        "--version",
+        action="version",
+        version=f"shablon {__version__}",
     )
     sub = parser.add_subparsers(
         dest="command",
@@ -58,5 +62,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "generate",
         help="Render templates from .shablon/templates/.",
+    )
+    sub.add_parser(
+        "init",
+        help="Scaffold a new .shablon/ directory in the current working directory.",
     )
     return parser
