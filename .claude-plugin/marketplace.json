@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "shablon-marketplace",
+  "description": "Marketplace for the shablon plugin: skills for rendering Jinja2 templates from a .shablon/ directory.",
+  "owner": {
+    "name": "a3lem",
+    "email": "me@a3lem.com"
+  },
+  "plugins": [
+    {
+      "name": "shablon",
+      "description": "Skills for using the shablon CLI to render Jinja2 templates from a .shablon/ directory into a project tree.",
+      "category": "development",
+      "source": {
+        "source": "path",
+        "path": ".."
+      },
+      "homepage": "https://github.com/a3lem/shablon"
+    }
+  ]
+}

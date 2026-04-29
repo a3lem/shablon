@@ -1,6 +1,6 @@
 ---
 name: use-shablon
-description: How to use the `shablon` CLI to render Jinja2 templates from a `.shablon/` directory into a project tree. Covers `shablon init` for first-time scaffolding, the `.shablon/` layout (templates/, vars.<ext>, config.toml, _includes/ partials), the executable variables-file contract, and `shablon generate` for rendering. Use this skill whenever the user mentions shablon, asks to scaffold or render templates from `.shablon/`, wants to set up project-wide file generation from a single source of truth, sees a `.shablon/` directory in their repo, hits an error from the `shablon` command, or asks how to template repeated files (agent assets, hook scripts, plugin manifests, doc stubs) across a project. Trigger even when the user does not name "shablon" explicitly but describes the task ("render these jinja templates into the repo from a manifest", "I have a vars.py that should drive a bunch of file generation").
+description: How to use the `shablon` CLI to render Jinja2 templates from a `.shablon/` directory into a project tree. Covers `shablon init` for first-time scaffolding, the `.shablon/` layout (templates/, vars.<ext>, config.toml, _includes/ partials), the executable variables-file contract, and `shablon generate` for rendering. Use this skill when the user is adding or modifying shablon-managed templates: editing files under `.shablon/templates/`, changing `vars.<ext>` or `config.toml`, scaffolding a new shablon project with `shablon init`, debugging a failing `shablon` invocation, or extending the set of files generated from `.shablon/`. Trigger even when the user does not name "shablon" explicitly but describes the task in those terms ("I have a vars.py that should drive a bunch of file generation in this project's `.shablon/`").
 ---
 
 # Using shablon
@@ -40,8 +40,8 @@ There is no flag to override the working directory. To run shablon
 against a project, `cd` into it (or any subdirectory) first.
 
 The key insight: **the templates directory's layout is the output
-layout**. There is no separate manifest of "render this to that". The
-filesystem is the manifest.
+layout**. There is no separate "render this to that" mapping file --
+the filesystem itself describes what gets rendered where.
 
 ## Bootstrap
 
@@ -77,7 +77,7 @@ script" arrangement (e.g., `templates/` rendered by
 |---|---|
 | `templates/` (template root) | `.shablon/templates/` |
 | The build script's context-building logic | `.shablon/vars.py` (executable, prints JSON object) |
-| A manifest of "render X to Y" | The filesystem layout under `.shablon/templates/` |
+| Hard-coded "render X to Y" mappings in the script | The filesystem layout under `.shablon/templates/` |
 | `uv run scripts/generate.py` in justfile/Makefile | `shablon generate` |
 
 Recommended sequence:
@@ -85,8 +85,8 @@ Recommended sequence:
 1. Snapshot the current output: `cp -r <output-dir> /tmp/baseline`.
 2. Move templates: `mkdir -p .shablon && mv templates .shablon/templates`.
 3. Translate the build script into `.shablon/vars.py` (or `vars.sh`,
-   etc.). Make it executable. Use `SHABLON_PROJECT_ROOT` to locate
-   project files.
+   etc.). Make it executable. The script runs with `cwd` set to the
+   project root, so use plain relative paths to reach project files.
 4. Run `shablon generate`.
 5. `diff -r /tmp/baseline <output-dir>` to confirm parity. Expect
    zero diff -- if there is one, fix it before deleting the old
@@ -100,25 +100,11 @@ templates (a hand-written `hooks.json`, say). Those belong outside
 `.shablon/templates/` -- shablon never touches files it did not
 render.
 
-## Invoking shablon
-
-Shablon is a tool you run *against* arbitrary projects, but those
-projects rarely depend on it. Three ways to invoke it, in order of
-preference:
-
-1. **Globally installed** (`uv tool install shablon`, `pipx install
-   shablon`, etc.): just run `shablon generate`. Best for routine use.
-2. **`uvx shablon generate`**: ephemeral, no install. Good for one-off
-   trials or CI.
-3. **From a local checkout**: `uv --project /path/to/shablon-checkout
-   run shablon generate`. Useful while developing shablon itself
-   against a real consumer project.
-
-The consumer project's own `pyproject.toml` does **not** need to
-declare shablon as a dependency. Shablon reads `.shablon/` and writes
-files; it doesn't import anything from the project.
-
 ## Render
+
+Assume `shablon` is already installed and on `PATH`. The consumer
+project does not declare shablon as a dependency -- shablon reads
+`.shablon/` and writes files, it imports nothing from the project.
 
 From inside a configured project:
 
@@ -199,17 +185,14 @@ echo '{"project": {"name": "myproj", "version": "0.1.0"}}'
 
 ### Example `vars.py`
 
-Prefer `SHABLON_PROJECT_ROOT` over deriving the root from `__file__`:
-shablon already located the root, the env var survives `vars.py`
-moving inside `.shablon/`, and the script can shell out to project
-tools without guessing where they live.
+Because `cwd` is the project root, plain relative paths just work --
+no need to derive a root from `__file__` or anything else.
 
 ```python
 #!/usr/bin/env python3
-import json, os, pathlib, subprocess, tomllib
+import json, pathlib, subprocess, tomllib
 
-root = pathlib.Path(os.environ["SHABLON_PROJECT_ROOT"])
-pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+pyproject = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
 help_text = subprocess.run(
     ["mytool", "--help"], capture_output=True, text=True, check=True,
 ).stdout
@@ -240,24 +223,29 @@ Two kinds of files are skipped:
 Templates render with `keep_trailing_newline=True`, so files end with
 the same single trailing newline as the source.
 
-Symlinks under `templates/` are followed. The output is always a
-regular file, never a symlink.
-
 ## Config
 
 `.shablon/config.toml` is optional. Two recognised keys:
 
 ```toml
-# basename patterns (fnmatch) that re-enable specific dotfiles.
+# fnmatch patterns matched against the basename of dotfile templates.
+# A dotfile template is rendered iff its basename matches at least one
+# pattern here. Has no effect on non-dotfile templates -- those are
+# always rendered. Has no effect on the partials directory -- that
+# exclusion is structural.
 include = [".gitignore", ".env*"]
 
 # partials directory basename. Default: "_includes".
+# Set this if the project genuinely needs a real `_includes/` directory
+# in its output: pick a different name (e.g. `_partials`) so shablon
+# does not swallow the literal `_includes/` tree.
 partials_dir = "_includes"
 ```
 
 Constraints:
 
-- `include` must be an array of strings.
+- `include` must be an array of strings. Each string is an
+  `fnmatch.fnmatchcase` pattern (so `*`, `?`, `[abc]` all work).
 - `partials_dir` must be a non-empty string with no path separators,
   not `.` or `..`.
 - Unknown top-level keys are rejected (typo protection).
