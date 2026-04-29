@@ -110,6 +110,20 @@ I need a way to manage these per-agent variants while keeping the shared content
 
 A `use-shablon` skill ships at `skills/use-shablon/`. Install it into your agent of choice.
 
+### Claude Code
+
+Add the marketplace.
+
+```
+claude plugin marketplace add a3lem/shablon
+```
+
+Then install the `shablon` plugin.
+
+```
+/plugin install shablon@shablon-marketplace
+```
+
 ## Status
 
 Pre-1.0. The CLI surface and `.shablon/` schema are still evolving; see [CHANGELOG.md](CHANGELOG.md).
