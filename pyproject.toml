@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "Render Jinja2 templates from a .shablon/ directory into a project tree."
 readme = "README.md"
 authors = [
-    { name = "a3lem", email = "me@a3lem.com" }
+    { name = "a3lem", email = "me@" }
 ]
 requires-python = ">=3.14"
 dependencies = [

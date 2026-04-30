@@ -5,7 +5,7 @@
   "description": "Skills for using shablon, a CLI that renders Jinja2 templates from a .shablon/ directory into a project tree.",
   "author": {
     "name": "a3lem",
-    "email": "me@a3lem.com"
+    "email": "a3lem@pm.me"
   },
   "homepage": "https://github.com/a3lem/shablon",
   "repository": "https://github.com/a3lem/shablon",
