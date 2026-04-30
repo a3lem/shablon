@@ -24,5 +24,5 @@ def run(start: Path) -> None:
         rel = PurePosixPath(template_path.relative_to(template_root).as_posix())
         assert not rel.is_absolute(), rel
         output_path = project_root / Path(*rel.parts)
-        render.render_to_file(env, rel, output_path, context, template_path)
-        print(f"wrote {rel}")
+        outcome = render.render_to_file(env, rel, output_path, context, template_path)
+        print(f"{outcome.value} {rel}")

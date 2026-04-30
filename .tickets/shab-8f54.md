@@ -1,6 +1,6 @@
 ---
 id: shab-8f54
-status: closed
+status: completed
 type: epic
 priority: 2
 assignee: claude
@@ -8,7 +8,6 @@ deps: []
 links: []
 tags: []
 xref: add-generate
-resolution: completed
 created: 2026-04-28T10:27:36.482214+00:00
 ---
 # Add shablon generate command

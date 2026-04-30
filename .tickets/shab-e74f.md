@@ -1,6 +1,6 @@
 ---
 id: shab-e74f
-status: closed
+status: completed
 type: chore
 priority: 2
 assignee: claude
@@ -8,7 +8,6 @@ deps: []
 links: []
 parent: shab-8f54
 tags: []
-resolution: completed
 created: 2026-04-28T10:27:40.512794+00:00
 ---
 # Project scaffolding for shablon CLI

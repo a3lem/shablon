@@ -14,7 +14,7 @@ from __future__ import annotations
 import stat
 from pathlib import Path, PurePosixPath
 
-from shablon.render import build_env, render_to_file
+from shablon.render import RenderOutcome, build_env, render_to_file
 from tests.helpers import write
 
 
@@ -67,7 +67,7 @@ def test_parent_dirs_created(project: Path) -> None:
     assert out.parent == project / "plugins/claude/hooks"
 
 
-# spec: templates requirement=output-overwrites-existing-file scenario=re-running-generate
+# spec: templates requirement=output-overwrites-existing-file scenario=re-running-generate-after-a-template-edit
 def test_overwrites_existing_output(project: Path) -> None:
     root = _setup(project)
     write(root / "x.md", "second")
@@ -75,9 +75,58 @@ def test_overwrites_existing_output(project: Path) -> None:
     out.write_text("first", encoding="utf-8")
 
     env = build_env(root)
-    render_to_file(env, PurePosixPath("x.md"), out, {}, root / "x.md")
+    outcome = render_to_file(env, PurePosixPath("x.md"), out, {}, root / "x.md")
 
     assert out.read_text() == "second"
+    assert outcome is RenderOutcome.WROTE
+
+
+# spec: templates requirement=output-overwrites-existing-file scenario=re-running-generate-with-no-changes
+def test_unchanged_skips_write_and_preserves_mtime(project: Path) -> None:
+    root = _setup(project)
+    src = write(root / "x.md", "same\n")
+    out = project / "x.md"
+
+    env = build_env(root)
+    first = render_to_file(env, PurePosixPath("x.md"), out, {}, src)
+    assert first is RenderOutcome.WROTE
+
+    mtime_before = out.stat().st_mtime_ns
+    second = render_to_file(env, PurePosixPath("x.md"), out, {}, src)
+
+    assert second is RenderOutcome.UNCHANGED
+    assert out.stat().st_mtime_ns == mtime_before
+
+
+# spec: templates requirement=output-overwrites-existing-file scenario=mode-bits-differ-but-content-matches
+def test_mode_drift_triggers_wrote(project: Path) -> None:
+    root = _setup(project)
+    src = write(root / "hooks/post-tool.sh", "#!/bin/sh\necho hi\n")
+    src.chmod(0o755)
+    out = project / "hooks/post-tool.sh"
+
+    env = build_env(root)
+    first = render_to_file(env, PurePosixPath("hooks/post-tool.sh"), out, {}, src)
+    assert first is RenderOutcome.WROTE
+
+    out.chmod(0o644)
+
+    second = render_to_file(env, PurePosixPath("hooks/post-tool.sh"), out, {}, src)
+    assert second is RenderOutcome.WROTE
+    assert (out.stat().st_mode & 0o777) == 0o755
+
+
+# spec: templates requirement=output-overwrites-existing-file scenario=first-write-into-a-fresh-project
+def test_first_write_returns_wrote(project: Path) -> None:
+    root = _setup(project)
+    src = write(root / "x.md", "hi")
+
+    env = build_env(root)
+    out = project / "x.md"
+    outcome = render_to_file(env, PurePosixPath("x.md"), out, {}, src)
+
+    assert outcome is RenderOutcome.WROTE
+    assert out.read_text() == "hi"
 
 
 # spec: templates requirement=render-context-from-variables scenario=top-level-keys-become-jinja-variables

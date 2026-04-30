@@ -1,6 +1,6 @@
 ---
 id: shab-6db2
-status: closed
+status: completed
 type: task
 priority: 2
 assignee: claude
@@ -8,7 +8,6 @@ deps: [shab-e74f]
 links: []
 parent: shab-8f54
 tags: []
-resolution: completed
 created: 2026-04-28T10:27:45.232191+00:00
 ---
 # Project-root upward discovery (discovery.find_project_root)

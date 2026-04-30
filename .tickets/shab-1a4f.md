@@ -1,6 +1,6 @@
 ---
 id: shab-1a4f
-status: closed
+status: completed
 type: task
 priority: 2
 assignee: claude
@@ -8,7 +8,6 @@ deps: [shab-e74f]
 links: []
 parent: shab-8f54
 tags: []
-resolution: completed
 created: 2026-04-28T10:28:18.069384+00:00
 ---
 # Render module (render.py)

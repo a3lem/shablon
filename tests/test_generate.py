@@ -20,6 +20,7 @@ from tests.helpers import vars_script, write
 
 
 # spec: cli requirement=generate-subcommand scenario=invoking-generate-from-a-configured-project
+# spec: cli requirement=generate-subcommand scenario=first-run-writes-everything
 # spec: templates requirement=output-path-mirrors-template-path scenario=nested-template
 # spec: templates requirement=output-path-mirrors-template-path scenario=top-level-template
 def test_end_to_end(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -46,6 +47,44 @@ def test_end_to_end(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     captured = capsys.readouterr()
     assert "wrote AGENTS.md" in captured.out
     assert "wrote plugins/claude/hooks/prime.md" in captured.out
+
+
+# spec: cli requirement=generate-subcommand scenario=immediate-re-run-reports-everything-unchanged
+def test_rerun_reports_unchanged(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = project / ".shablon" / "templates"
+    write(root / "a.md", "alpha\n")
+    write(root / "b.md", "beta\n")
+
+    generate.run(start=project)
+    _ = capsys.readouterr()
+
+    generate.run(start=project)
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.splitlines() if line]
+
+    assert lines == ["unchanged a.md", "unchanged b.md"]
+
+
+# spec: cli requirement=generate-subcommand scenario=partial-re-run-reports-per-file-outcome
+def test_partial_rerun_mixed_outcomes(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = project / ".shablon" / "templates"
+    write(root / "a.md", "alpha\n")
+    write(root / "b.md", "beta\n")
+
+    generate.run(start=project)
+    _ = capsys.readouterr()
+
+    write(root / "a.md", "alpha v2\n")
+
+    generate.run(start=project)
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.splitlines() if line]
+
+    assert lines == ["wrote a.md", "unchanged b.md"]
 
 
 # spec: cli requirement=missing-templates-directory-errors-cleanly scenario=empty-shablon-directory

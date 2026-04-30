@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-04-30
+
+### Changed
+
+- `shablon generate` now compares each rendered output against the file on disk and skips the rewrite when both content and mode bits already match, preserving mtime. Stdout reports `unchanged <path>` for skipped writes and `wrote <path>` for created or overwritten files. Downstream tooling that greps `wrote ` will see fewer matches on no-op runs.
+
 ## [0.1.1] - 2026-04-29
 
 ### Added
